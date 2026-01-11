@@ -1,0 +1,42 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Install dependencies",
+      "type": "shell",
+      "command": "pnpm install",
+      "problemMatcher": []
+    },
+    {
+      "label": "Lint",
+      "type": "shell",
+      "command": "pnpm lint",
+      "problemMatcher": []
+    },
+    {
+      "label": "Lint & Fix",
+      "type": "shell",
+      "command": "pnpm lint:fix",
+      "problemMatcher": []
+    },
+    {
+      "label": "Type Check",
+      "type": "shell",
+      "command": "pnpm check-types",
+      "problemMatcher": ["$tsc"]
+    },
+    {
+      "label": "Clean artifacts",
+      "type": "shell",
+      "command": "pnpm clean:artifacts",
+      "problemMatcher": []
+    },
+    {
+      "label": "Clean all",
+      "type": "shell",
+      "command": "pnpm clean",
+      "problemMatcher": []
+    }
+  ]
+}
+

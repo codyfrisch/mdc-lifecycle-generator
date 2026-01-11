@@ -1,0 +1,10 @@
+{
+  "recommendations": [
+    "biomejs.biome",
+    "amazonwebservices.aws-toolkit-vscode",
+    "graphql.vscode-graphql",
+    "graphql.vscode-graphql-syntax",
+    "vercel.turbo-vsc",
+    "vitest.explorer"
+  ]
+}

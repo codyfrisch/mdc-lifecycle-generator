@@ -1,0 +1,44 @@
+{
+  "app_id": "1234567890",
+  "app_name": "Test App",
+  "webhook_url": "https://your-webhook-endpoint.com/webhook",
+  "pricing_version": {
+    "5": {
+      "plans": {
+        "plan1": {
+          "plan_id": "plan1",
+          "isFree": false,
+          "isTrial": false,
+          "plan_index": 3,
+          "max_units": 100
+        },
+        "plan2": {
+          "plan_id": "plan2",
+          "isFree": true,
+          "isTrial": false,
+          "plan_index": 1
+        },
+        "trial_plan": {
+          "plan_id": "trial_plan",
+          "isFree": false,
+          "isTrial": true,
+          "plan_index": 2
+        }
+      },
+      "freePlan": "plan2",
+      "trialPlan": "trial_plan"
+    },
+    "6": {
+      "plans": {
+        "plan1": {
+          "plan_id": "plan1",
+          "isFree": false,
+          "isTrial": false,
+          "plan_index": 3
+        }
+      },
+      "freePlan": null,
+      "trialPlan": null
+    }
+  }
+}

@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Monday Lifecycle Webhook Mock Tool</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>Monday Lifecycle Webhook Mock Tool</h1>
+
+      <div class="section">
+        <h2>Configuration</h2>
+        <div style="margin-bottom: 20px;">
+          <button id="tab-manage-lifecycle" class="tab-button active">Manage Lifecycle</button>
+          <button id="tab-account-user-config" class="tab-button">Account/User Config</button>
+          <button id="tab-config" class="tab-button">Config</button>
+        </div>
+
+        <div id="manage-lifecycle-panel">
+          <div class="form-group">
+            <h2>Event Configuration</h2>
+            <div class="form-group">
+              <label for="event-type">Event Type</label>
+              <select id="event-type">
+                <option value="install">install</option>
+                <option value="uninstall">uninstall</option>
+                <option value="app_subscription_created">app_subscription_created</option>
+                <option value="app_subscription_changed">app_subscription_changed</option>
+                <option value="app_subscription_renewed">app_subscription_renewed</option>
+                <option value="app_subscription_cancelled_by_user">app_subscription_cancelled_by_user</option>
+                <option value="app_subscription_cancelled">app_subscription_cancelled</option>
+                <option value="app_subscription_cancellation_revoked_by_user">app_subscription_cancellation_revoked_by_user</option>
+                <option value="app_subscription_renewal_attempt_failed">app_subscription_renewal_attempt_failed</option>
+                <option value="app_subscription_renewal_failed">app_subscription_renewal_failed</option>
+                <option value="app_trial_subscription_started">app_trial_subscription_started</option>
+                <option value="app_trial_subscription_ended">app_trial_subscription_ended</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="pricing-version">Pricing Version</label>
+              <select id="pricing-version">
+                <option value="">Select pricing version</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="plan-id">Plan ID</label>
+              <select id="plan-id">
+                <option value="">Select a plan</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="billing-period">Billing Period</label>
+              <select id="billing-period">
+                <option value="monthly">monthly</option>
+                <option value="yearly">yearly</option>
+                <option value="permanent">permanent</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="renewal-date">Renewal Date (optional)</label>
+              <input type="datetime-local" id="renewal-date" />
+              <p style="color: #666; font-size: 12px; margin-top: 5px;">
+                <strong>Note:</strong> Leave blank to set renewal_date to null. days_left will be calculated automatically if a date is provided.
+              </p>
+            </div>
+            <div class="form-group">
+              <label for="reason">Reason (optional)</label>
+              <input type="text" id="reason" placeholder="Optional reason field" />
+            </div>
+          </div>
+
+
+          <div class="form-group">
+            <h2>Preview</h2>
+            <div id="preview-event" class="preview">Select event type and fill in details to see preview...</div>
+            <div id="preview-jwt" class="preview" style="margin-top: 10px; display: none;"></div>
+          </div>
+
+          <div class="form-group">
+            <div class="button-group">
+              <button id="send-webhook">Send Webhook</button>
+            </div>
+            <div id="response-message"></div>
+          </div>
+
+          <div class="form-group">
+            <h2>History</h2>
+            <div id="history"></div>
+          </div>
+        </div>
+
+        <div id="account-user-config-panel" style="display: none;">
+          <div class="form-group">
+            <h2>Account/User Setup</h2>
+            <div class="form-group">
+              <label for="account-id">Account ID</label>
+              <input type="text" id="account-id" placeholder="777777" />
+            </div>
+            <div class="form-group">
+              <label for="user-id">User ID</label>
+              <input type="text" id="user-id" placeholder="1" />
+            </div>
+            <div class="form-group">
+              <label for="user-name">User Name</label>
+              <input type="text" id="user-name" placeholder="Test User" />
+            </div>
+            <div class="form-group">
+              <label for="user-email">User Email</label>
+              <input type="email" id="user-email" placeholder="user@example.com" />
+            </div>
+            <div class="form-group">
+              <label for="account-name">Account Name</label>
+              <input type="text" id="account-name" placeholder="Test Account" />
+            </div>
+            <div class="form-group">
+              <label for="account-slug">Account Slug</label>
+              <input type="text" id="account-slug" placeholder="test" />
+            </div>
+            <div class="form-group">
+              <label for="account-tier">Account Tier</label>
+              <select id="account-tier">
+                <option value="free">free</option>
+                <option value="pro">pro</option>
+                <option value="enterprise">enterprise</option>
+                <option value="">null</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="account-max-users">Account Max Users</label>
+              <input type="number" id="account-max-users" placeholder="10000" />
+            </div>
+            <div class="button-group" style="margin-top: 15px;">
+              <button id="export-account-data">Export JSON</button>
+              <button id="import-account-data">Import JSON</button>
+            </div>
+            <p style="color: #666; font-size: 14px; margin-top: 10px;">
+              <strong>Note:</strong> Account data is automatically saved 2 seconds after you stop editing.
+            </p>
+            <input type="file" id="account-data-upload" accept=".json" style="display: none;" />
+          </div>
+        </div>
+
+        <div id="config-panel" style="display: none;">
+          <div class="form-group">
+            <h3>Config JSON</h3>
+            <div class="form-group">
+              <label for="config-upload">Upload Config JSON</label>
+              <input type="file" id="config-upload" accept=".json" />
+            </div>
+            <div class="form-group">
+              <label for="generated-config">Config JSON (paste, edit, or generate below)</label>
+              <div id="generated-config"></div>
+            </div>
+            <div class="button-group" style="margin-top: 10px;">
+              <button id="copy-config">Copy JSON</button>
+              <button id="download-config">Download JSON</button>
+              <button id="reset-config" class="remove-button">Reset Config</button>
+            </div>
+            <p style="margin-top: 10px; color: #666; font-size: 14px;">
+              <strong>Note:</strong> Config is automatically saved 2 seconds after you stop editing. Generated config below will auto-update this field.
+            </p>
+          </div>
+
+          <div class="form-group" style="margin-top: 30px;">
+            <h3>App Configuration</h3>
+            <div class="config-item" style="background: #f8f9fa; padding: 15px; margin-top: 10px;">
+              <div class="config-item-row">
+                <label>App ID:</label>
+                <input type="text" id="app-config-id" placeholder="e.g., 123456789" />
+              </div>
+              <div class="config-item-row">
+                <label>App Name:</label>
+                <input type="text" id="app-config-name" placeholder="e.g., My App" />
+              </div>
+              <div class="config-item-row">
+                <label>Webhook URL:</label>
+                <input type="url" id="app-config-webhook-url" placeholder="https://your-webhook-endpoint.com/webhook" style="flex: 2;" />
+              </div>
+              <div class="config-item-row">
+                <label>Client Secret *:</label>
+                <input type="password" id="client-secret" placeholder="Your client secret" required style="flex: 2;" />
+              </div>
+              <p style="color: #666; font-size: 12px; margin-top: 10px;">
+                <strong>Note:</strong> Free and trial plan support is automatically inferred from the pricing versions. Client secret must be entered manually and is session-only (not saved).
+              </p>
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-top: 20px;">
+            <h3>Pricing Versions</h3>
+            <div id="pricing-versions-list"></div>
+            <div class="config-item" style="background: #f8f9fa; padding: 15px; margin-top: 10px;">
+              <div class="config-item-row">
+                <label>New Pricing Version:</label>
+                <input type="text" id="new-pricing-version" placeholder="e.g., 5" />
+                <button id="add-pricing-version">Add</button>
+              </div>
+              <div id="pricing-version-error" style="display: none; color: #e74c3c; font-size: 12px; margin-top: 5px; margin-left: 0;"></div>
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-top: 20px;">
+            <h3>Plans</h3>
+            <div id="plans-list"></div>
+            <div class="config-item" style="background: #f8f9fa; padding: 15px; margin-top: 10px;">
+              <h4>Add New Plan</h4>
+              <div class="config-item-row">
+                <label>Plan ID:</label>
+                <input type="text" id="new-plan-id" placeholder="e.g., plan_123" />
+              </div>
+              <div class="config-item-row">
+                <label>Is Free Plan:</label>
+                <input type="checkbox" id="new-plan-is-free" />
+              </div>
+              <div class="config-item-row">
+                <label>Is Trial Plan:</label>
+                <input type="checkbox" id="new-plan-is-trial" />
+              </div>
+              <div class="config-item-row">
+                <label>Max Units (optional):</label>
+                <input type="number" id="new-plan-max-units" placeholder="leave empty for null" />
+              </div>
+              <p style="color: #666; font-size: 12px; margin-top: 5px;">
+                <strong>Note:</strong> Plan order is managed by drag-and-drop. New plans are added at the end.
+              </p>
+              <button id="add-plan" style="margin-top: 10px;">Add Plan</button>
+              <div id="plan-error" style="display: none; color: #e74c3c; font-size: 12px; margin-top: 5px;"></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/main.ts"></script>
+  </body>
+</html>
