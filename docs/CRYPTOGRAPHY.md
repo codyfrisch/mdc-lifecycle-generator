@@ -215,15 +215,22 @@ Entries:
 
 Secrets are **not** decrypted when the vault is unlocked. Instead, they are decrypted on-demand when first accessed:
 
-1. **Unlock**: Verify password by decrypting one secret, then hold only master key in memory
-2. **First Access**: When a secret is needed:
+1. **Unlock**: 
+   - Verify password by decrypting one secret
+   - Derive master key from password + salt
+   - Hold master key in memory
+   - **Save encrypted master key to sessionStorage** (for persistence across refresh)
+2. **Page Refresh**: 
+   - Restore master key from sessionStorage (if available)
+   - Automatically unlock if session is valid
+3. **First Access**: When a secret is needed:
    - Load ciphertext + nonce from IndexedDB
    - Derive DEK from master key + app ID
    - Decrypt and authenticate ciphertext
    - Zero DEK from memory
    - **Cache** decrypted secret in memory
 3. **Subsequent Access**: Return cached secret (no decryption)
-4. **Lock**: Clear cache and zero master key
+4. **Lock**: Clear cache, zero master key, and clear sessionStorage
 
 This approach:
 - Reduces unlock time (no bulk decryption)
@@ -233,8 +240,9 @@ This approach:
 ### Destruction
 
 1. Clear IndexedDB (salt + all encrypted data)
-2. Zero master key from memory
-3. Clear secrets cache from memory
+2. Clear sessionStorage (encrypted master key)
+3. Zero master key from memory
+4. Clear secrets cache from memory
 
 ### Password Change
 
@@ -244,7 +252,8 @@ This approach:
 4. Derive new master key from new password + new salt
 5. Re-encrypt all secrets with new DEKs
 6. Store new salt + ciphertext
-7. Zero old master key from memory
+7. Update sessionStorage with new encrypted master key
+8. Zero old master key from memory
 
 ## Memory Security
 
@@ -258,6 +267,10 @@ While unlocked, the following is held in memory:
 | DEKs | During encrypt/decrypt only | Immediately after use |
 | Plaintext Secrets | Only after first access (cached) | On lock/auto-lock |
 
+**Session Storage:**
+- Encrypted master key (in `sessionStorage`) - Persists across page refresh, cleared on tab close
+- Session key (in `sessionStorage`) - Used to decrypt master key on refresh
+
 Secrets are decrypted on-demand and cached for performance. This means:
 - Only accessed secrets are ever in memory as plaintext
 - Unused secrets remain encrypted in IndexedDB
@@ -270,6 +283,38 @@ The vault automatically locks after **15 minutes** of inactivity to minimize exp
 - Timer resets on successful webhook send
 - On timeout: master key zeroed, secrets cache cleared
 - Encrypted data remains in IndexedDB for next unlock
+
+### Session Persistence
+
+The unlocked state persists across page refreshes using `sessionStorage`:
+
+**How it works:**
+1. On unlock: Master key is encrypted with a random session key using XSalsa20-Poly1305
+2. Both encrypted master key and session key are stored in `sessionStorage`
+3. On page refresh: Encrypted master key is decrypted and vault is automatically unlocked
+4. On tab close: `sessionStorage` is cleared by the browser, requiring password re-entry
+
+**Storage Format:**
+```json
+{
+  "key": "base64-encoded-session-key",
+  "nonce": "base64-encoded-nonce",
+  "encrypted": "base64-encoded-encrypted-master-key"
+}
+```
+
+**Security Properties:**
+- **Survives**: Page refresh, navigation within the same tab
+- **Cleared**: When tab/window closes, on explicit lock, or on password change
+- **Encryption**: Master key encrypted with random session key (not password-derived)
+- **XSS Risk**: If XSS occurs while unlocked, attacker could extract session key and maintain access until tab closes
+
+**Tradeoff:**
+This is a UX vs security tradeoff. The incremental XSS risk is minimal because:
+- CSP blocks most XSS vectors
+- Localhost-only operation limits attack surface
+- Session ends when tab closes (unlike localStorage which persists)
+- Auto-lock still applies (15-minute timeout)
 
 ### Sensitive Data Zeroing
 

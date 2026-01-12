@@ -2,17 +2,21 @@ import type { Readable, Writable } from "svelte/store";
 import { derived, get, writable } from "svelte/store";
 import {
   type AppSecrets,
+  clearSessionMasterKey,
   clearStoredSecrets,
   createEmptyAppSecrets,
   encryptAndStoreAppSecrets,
   ensureSodiumReady,
   getMasterKey,
+  hasSessionMasterKey,
   hasStoredSecrets,
   initializeSalt,
   loadAndDecryptAppSecrets,
+  loadSessionMasterKey,
   reencryptWithNewPassword,
   removeAppSecretsFromStorage,
   type SecretsData,
+  saveSessionMasterKey,
   secureZero,
   verifyPassword,
 } from "../crypto/secrets-crypto.js";
@@ -171,6 +175,8 @@ const secretsVault = (() => {
 /**
  * Initialize secrets store - check if encrypted secrets exist
  * Must be called on app startup (async for libsodium and IndexedDB)
+ *
+ * Also attempts to restore session from sessionStorage (survives refresh)
  */
 export async function initializeSecretsStore(): Promise<void> {
   // Ensure libsodium is ready
@@ -181,11 +187,33 @@ export async function initializeSecretsStore(): Promise<void> {
 
   // Check if we have secrets in IndexedDB
   const hasSecretsStored = await hasStoredSecrets();
+
+  // Try to restore session from sessionStorage
+  let isUnlocked = false;
+  if (hasSessionMasterKey()) {
+    const sessionMasterKey = await loadSessionMasterKey();
+    if (sessionMasterKey) {
+      // Verify the session key is still valid by checking against stored secrets
+      const hasSecrets = await hasStoredSecrets();
+      if (hasSecrets) {
+        // Session restored successfully
+        secretsVault.setMasterKey(sessionMasterKey);
+        isUnlocked = true;
+        startAutoLockTimer();
+        console.log("Session restored from sessionStorage");
+      } else {
+        // No secrets stored, clear invalid session
+        clearSessionMasterKey();
+      }
+    }
+  }
+
   secretsStateInternal.update((state) => ({
     ...state,
     hasSecrets: hasSecretsStored,
     masterPasswordSet: hasSecretsStored,
     isInitialized: true,
+    isLocked: !isUnlocked,
   }));
 }
 
@@ -195,8 +223,13 @@ export async function initializeSecretsStore(): Promise<void> {
  *
  * Note: Secrets are NOT decrypted at unlock time. They are decrypted
  * on-demand when accessed and cached for performance.
+ *
+ * @param persistSession - If true, save master key to sessionStorage for persistence across refresh
  */
-export async function unlockSecrets(password: string): Promise<boolean> {
+export async function unlockSecrets(
+  password: string,
+  persistSession: boolean = false,
+): Promise<boolean> {
   const state = get(secretsStateInternal);
 
   // If no secrets exist yet, this is first-time setup
@@ -206,9 +239,18 @@ export async function unlockSecrets(password: string): Promise<boolean> {
 
     // Get the master key for future operations
     const masterKey = await getMasterKey(password);
+    if (!masterKey) {
+      return false;
+    }
 
     secretsVault.setPassword(password);
     secretsVault.setMasterKey(masterKey);
+
+    // Save to session for persistence across refresh (if enabled)
+    if (persistSession) {
+      await saveSessionMasterKey(masterKey);
+    }
+
     secretsStateInternal.update((s) => ({
       ...s,
       isLocked: false,
@@ -228,9 +270,17 @@ export async function unlockSecrets(password: string): Promise<boolean> {
 
   // Get the master key for future operations (secrets decrypted on-demand)
   const masterKey = await getMasterKey(password);
+  if (!masterKey) {
+    return false;
+  }
 
   secretsVault.setPassword(password);
   secretsVault.setMasterKey(masterKey);
+
+  // Save to session for persistence across refresh (if enabled)
+  if (persistSession) {
+    await saveSessionMasterKey(masterKey);
+  }
 
   secretsStateInternal.update((s) => ({
     ...s,
@@ -243,10 +293,11 @@ export async function unlockSecrets(password: string): Promise<boolean> {
 }
 
 /**
- * Lock secrets - clear from memory
+ * Lock secrets - clear from memory and session storage
  */
 export function lockSecrets(): void {
   stopAutoLockTimer();
+  clearSessionMasterKey();
   secretsVault.clear();
   secretsStateInternal.update((state) => ({
     ...state,
@@ -405,16 +456,24 @@ export async function changeMasterPassword(newPassword: string): Promise<void> {
 
   // Get the new master key
   const newMasterKey = await getMasterKey(newPassword);
+  if (!newMasterKey) {
+    throw new Error("Failed to derive new master key");
+  }
 
   // Update vault (cache remains valid, just update password/key)
   secretsVault.setPassword(newPassword);
   secretsVault.setMasterKey(newMasterKey);
+
+  // Update session storage with new master key
+  await saveSessionMasterKey(newMasterKey);
 }
 
 /**
  * Reset all secrets (dangerous - requires confirmation in UI)
  */
 export async function resetAllSecrets(): Promise<void> {
+  stopAutoLockTimer();
+  clearSessionMasterKey();
   await clearStoredSecrets();
   secretsVault.clear();
   secretsStateInternal.set({

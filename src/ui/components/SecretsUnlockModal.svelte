@@ -13,6 +13,7 @@
 
 	let password = $state("");
 	let confirmPassword = $state("");
+	let persistSession = $state(false); // Default to disabled for maximum security
 	let error = $state("");
 	let isLoading = $state(false);
 	let mouseDownOnOverlay = $state(false);
@@ -75,6 +76,7 @@
 	function handleClose() {
 		password = "";
 		confirmPassword = "";
+		persistSession = false; // Reset to default
 		error = "";
 		onclose?.();
 	}
@@ -123,10 +125,11 @@
 		isLoading = true;
 
 		try {
-			const success = await unlockSecrets(password);
+			const success = await unlockSecrets(password, persistSession);
 			if (success) {
 				password = "";
 				confirmPassword = "";
+				persistSession = false; // Reset to default
 				onunlock?.();
 				handleClose();
 			} else {
@@ -225,6 +228,23 @@
 						minlength={12}
 						passwordrules="minlength: 12; required: upper; required: digit; required: special;"
 					/>
+				</div>
+			{/if}
+
+			{#if !isFirstTime}
+				<div class="form-group checkbox-group">
+					<label class="checkbox-label">
+						<input
+							type="checkbox"
+							bind:checked={persistSession}
+							disabled={isLoading}
+						/>
+						<span>Keep unlocked after page refresh</span>
+					</label>
+					<p class="checkbox-hint">
+						When enabled, your unlock state persists across page refreshes until you close the tab.
+						Disable for maximum security (requires password on every refresh).
+					</p>
 				</div>
 			{/if}
 
@@ -395,6 +415,39 @@
 	.form-group input:disabled {
 		background: #f5f5f5;
 		cursor: not-allowed;
+	}
+
+	.checkbox-group {
+		margin-top: 10px;
+	}
+
+	.checkbox-label {
+		display: flex;
+		align-items: flex-start;
+		gap: 8px;
+		cursor: pointer;
+		font-weight: 500;
+		color: #333;
+		font-size: 14px;
+	}
+
+	.checkbox-label input[type="checkbox"] {
+		margin-top: 2px;
+		width: auto;
+		cursor: pointer;
+		flex-shrink: 0;
+	}
+
+	.checkbox-label input[type="checkbox"]:disabled {
+		cursor: not-allowed;
+		opacity: 0.6;
+	}
+
+	.checkbox-hint {
+		margin: 6px 0 0 24px;
+		font-size: 12px;
+		color: #6c757d;
+		line-height: 1.4;
 	}
 
 	.error-message {

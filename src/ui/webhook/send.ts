@@ -1,11 +1,12 @@
 /** biome-ignore-all lint/correctness/useParseIntRadix: not applicable */
+import { get } from "svelte/store";
 import { getAppConfig } from "../../core/config-loader.js";
 import { generateEvent } from "../../core/event-generator.js";
 import { sendWebhook } from "../../core/http-sender.js";
+import { signLifecycleJwt } from "../../core/jwt-signer.js";
 import type { SubscriptionPeriodType } from "../../schema/enums.ts";
 import { lifecyclePayload } from "../../schema/payload.js";
 import type { EventGenerationInput } from "../../types.js";
-import { signLifecycleJwt } from "../browser/jwt-signer.js";
 import { getConfig } from "../config-state.js";
 import {
   accountId,
@@ -27,6 +28,7 @@ import {
 } from "../dom-elements.js";
 import { generateClientId } from "../helpers/client-id.js";
 import { addToHistory, showMessage } from "../helpers/messages.js";
+import { accountCollection } from "../stores/account-data-store.js";
 import { resetAutoLockTimer } from "../stores/secrets-store.js";
 import { updatePreview } from "../ui/preview.js";
 
@@ -66,6 +68,11 @@ export async function handleSendWebhook() {
 
     console.log("Renewal Date Input - After processing:", renewalDateInput);
 
+    // Try to get account data from store if account_id matches
+    const accountFromStore = get(accountCollection).accounts.find(
+      (a) => a.account_id === accountId.value,
+    );
+
     const input: EventGenerationInput = {
       event_type: eventType.value,
       app_id: config.app_id,
@@ -78,15 +85,22 @@ export async function handleSendWebhook() {
         | SubscriptionPeriodType
         | undefined,
       renewal_date: renewalDateInput,
-      user_id: userId.value || undefined,
-      user_name: userName.value || undefined,
-      user_email: userEmail.value || undefined,
-      account_name: accountName.value || undefined,
-      account_slug: accountSlug.value || undefined,
-      account_tier: accountTier.value === "" ? null : accountTier.value || null,
+      user_id: userId.value || accountFromStore?.user_id || undefined,
+      user_name: userName.value || accountFromStore?.user_name || undefined,
+      user_email: userEmail.value || accountFromStore?.user_email || undefined,
+      user_country: accountFromStore?.user_country || undefined,
+      user_cluster: accountFromStore?.user_cluster || undefined,
+      account_name:
+        accountName.value || accountFromStore?.account_name || undefined,
+      account_slug:
+        accountSlug.value || accountFromStore?.account_slug || undefined,
+      account_tier:
+        accountTier.value === ""
+          ? null
+          : accountTier.value || accountFromStore?.account_tier || null,
       account_max_users: accountMaxUsers.value
         ? parseInt(accountMaxUsers.value)
-        : undefined,
+        : accountFromStore?.account_max_users || undefined,
       reason: reason.value || undefined,
     };
 
@@ -98,11 +112,11 @@ export async function handleSendWebhook() {
       const errorDetails = payloadValidation.error.issues
         .map((e) => `${e.path.join(".")}: ${e.message}`)
         .join(", ");
-      console.error("Lifecycle payload validation failed:", payloadValidation.error);
-      showMessage(
-        `Invalid payload data: ${errorDetails}`,
-        "error",
+      console.error(
+        "Lifecycle payload validation failed:",
+        payloadValidation.error,
       );
+      showMessage(`Invalid payload data: ${errorDetails}`, "error");
       return;
     }
 
@@ -117,7 +131,12 @@ export async function handleSendWebhook() {
     // In production, this would come from app config
     const clientId = generateClientId(config.app_id);
 
-    const jwt = await signLifecycleJwt(event, clientSecret.value, clientId);
+    const jwt = await signLifecycleJwt(event, clientSecret.value, clientId, {
+      is_admin: accountFromStore?.is_admin ?? false,
+      is_guest: accountFromStore?.is_guest ?? false,
+      is_view_only: accountFromStore?.is_view_only ?? false,
+      user_kind: accountFromStore?.user_kind ?? null,
+    });
 
     const result = await sendWebhook(config.webhook_url, event, jwt);
 

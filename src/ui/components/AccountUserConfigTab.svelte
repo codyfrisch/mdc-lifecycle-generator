@@ -70,7 +70,13 @@
 
 	function handleSaveEdit() {
 		if (editingAccount) {
-			updateAccount(editingAccount.id, editingAccount);
+			// Ensure defaults are set for user_country and user_cluster
+			const accountToSave = {
+				...editingAccount,
+				user_country: editingAccount.user_country || "US",
+				user_cluster: editingAccount.user_cluster || "other",
+			};
+			updateAccount(accountToSave.id, accountToSave);
 			displayMessage("Account saved", "success");
 		}
 		isEditModalOpen = false;
@@ -82,7 +88,7 @@
 		editingAccount = null;
 	}
 
-	function handleEditFieldChange(field: keyof AccountUserData, value: string | number | null) {
+	function handleEditFieldChange(field: keyof AccountUserData, value: string | number | boolean | null) {
 		if (editingAccount) {
 			editingAccount = { ...editingAccount, [field]: value };
 		}
@@ -171,89 +177,162 @@
 			</header>
 
 			<div class="edit-modal-body">
-				<div class="form-group">
-					<label for="edit-account-name">Account Name</label>
-					<input
-						type="text"
-						id="edit-account-name"
-						placeholder="Test Account"
-						value={editingAccount.account_name}
-						oninput={(e) => handleEditFieldChange("account_name", (e.target as HTMLInputElement).value)}
-					/>
-				</div>
-				<hr />
-				<div class="form-group">
-					<label for="edit-account-id">Account ID</label>
-					<input
-						type="text"
-						id="edit-account-id"
-						placeholder="777777"
-						value={editingAccount.account_id}
-						oninput={(e) => handleEditFieldChange("account_id", (e.target as HTMLInputElement).value)}
-					/>
-				</div>
-				<div class="form-group">
-					<label for="edit-user-id">User ID</label>
-					<input
-						type="text"
-						id="edit-user-id"
-						placeholder="1"
-						value={editingAccount.user_id}
-						oninput={(e) => handleEditFieldChange("user_id", (e.target as HTMLInputElement).value)}
-					/>
-				</div>
-				<div class="form-group">
-					<label for="edit-user-name">User Name</label>
-					<input
-						type="text"
-						id="edit-user-name"
-						placeholder="Test User"
-						value={editingAccount.user_name}
-						oninput={(e) => handleEditFieldChange("user_name", (e.target as HTMLInputElement).value)}
-					/>
-				</div>
-				<div class="form-group">
-					<label for="edit-user-email">User Email</label>
-					<input
-						type="email"
-						id="edit-user-email"
-						placeholder="user@example.com"
-						value={editingAccount.user_email}
-						oninput={(e) => handleEditFieldChange("user_email", (e.target as HTMLInputElement).value)}
-					/>
-				</div>
-				<div class="form-group">
-					<label for="edit-account-slug">Account Slug</label>
-					<input
-						type="text"
-						id="edit-account-slug"
-						placeholder="test"
-						value={editingAccount.account_slug}
-						oninput={(e) => handleEditFieldChange("account_slug", (e.target as HTMLInputElement).value)}
-					/>
-				</div>
-				<div class="form-group">
-					<label for="edit-account-tier">Account Tier</label>
-					<select
-						id="edit-account-tier"
-						value={editingAccount.account_tier || ""}
-						onchange={(e) => handleTierChange((e.target as HTMLSelectElement).value)}
-					>
-						<option value="free">free</option>
-						<option value="pro">pro</option>
-						<option value="enterprise">enterprise</option>
-						<option value="">null</option>
-					</select>
-				</div>
-				<div class="form-group">
-					<label for="edit-account-max-users">Account Max Users</label>
-					<input
-						type="number"
-						id="edit-account-max-users"
-						placeholder="10000"
-						value={editingAccount.account_max_users ?? ""}
-						oninput={(e) => handleMaxUsersChange((e.target as HTMLInputElement).value)}
-					/>
+				<div class="form-sections-container">
+					<div class="form-section">
+						<h4 class="section-title">Account</h4>
+					<div class="form-group">
+						<label for="edit-account-name">Account Name</label>
+						<input
+							type="text"
+							id="edit-account-name"
+							placeholder="Test Account"
+							value={editingAccount.account_name}
+							oninput={(e) => handleEditFieldChange("account_name", (e.target as HTMLInputElement).value)}
+						/>
+					</div>
+					<div class="form-group">
+						<label for="edit-account-id">Account ID</label>
+						<input
+							type="text"
+							id="edit-account-id"
+							placeholder="777777"
+							value={editingAccount.account_id}
+							oninput={(e) => handleEditFieldChange("account_id", (e.target as HTMLInputElement).value)}
+						/>
+					</div>
+					<div class="form-group">
+						<label for="edit-account-slug">Account Slug</label>
+						<input
+							type="text"
+							id="edit-account-slug"
+							placeholder="test"
+							value={editingAccount.account_slug}
+							oninput={(e) => handleEditFieldChange("account_slug", (e.target as HTMLInputElement).value)}
+						/>
+					</div>
+					<div class="form-group">
+						<label for="edit-account-tier">Account Tier</label>
+						<select
+							id="edit-account-tier"
+							value={editingAccount.account_tier || ""}
+							onchange={(e) => handleTierChange((e.target as HTMLSelectElement).value)}
+						>
+							<option value="free">free</option>
+							<option value="pro">pro</option>
+							<option value="enterprise">enterprise</option>
+							<option value="">null</option>
+						</select>
+					</div>
+					<div class="form-group">
+						<label for="edit-account-max-users">Account Max Users</label>
+						<input
+							type="number"
+							id="edit-account-max-users"
+							placeholder="10000"
+							value={editingAccount.account_max_users ?? ""}
+							oninput={(e) => handleMaxUsersChange((e.target as HTMLInputElement).value)}
+						/>
+					</div>
+					</div>
+
+					<div class="form-section">
+						<h4 class="section-title">User</h4>
+						<div class="form-group">
+						<label for="edit-user-id">User ID</label>
+						<input
+							type="text"
+							id="edit-user-id"
+							placeholder="1"
+							value={editingAccount.user_id}
+							oninput={(e) => handleEditFieldChange("user_id", (e.target as HTMLInputElement).value)}
+						/>
+					</div>
+					<div class="form-group">
+						<label for="edit-user-name">User Name</label>
+						<input
+							type="text"
+							id="edit-user-name"
+							placeholder="Test User"
+							value={editingAccount.user_name}
+							oninput={(e) => handleEditFieldChange("user_name", (e.target as HTMLInputElement).value)}
+						/>
+					</div>
+					<div class="form-group">
+						<label for="edit-user-email">User Email</label>
+						<input
+							type="email"
+							id="edit-user-email"
+							placeholder="user@example.com"
+							value={editingAccount.user_email}
+							oninput={(e) => handleEditFieldChange("user_email", (e.target as HTMLInputElement).value)}
+						/>
+					</div>
+					<div class="form-group">
+						<label for="edit-user-country">User Country</label>
+						<input
+							type="text"
+							id="edit-user-country"
+							placeholder="US"
+							value={editingAccount.user_country || "US"}
+							oninput={(e) => handleEditFieldChange("user_country", (e.target as HTMLInputElement).value)}
+						/>
+					</div>
+					<div class="form-group">
+						<label for="edit-user-cluster">User Cluster</label>
+						<input
+							type="text"
+							id="edit-user-cluster"
+							placeholder="other"
+							value={editingAccount.user_cluster || "other"}
+							oninput={(e) => handleEditFieldChange("user_cluster", (e.target as HTMLInputElement).value)}
+						/>
+					</div>
+					<div class="form-group">
+						<label for="edit-user-kind">User Kind</label>
+						<select
+							id="edit-user-kind"
+							value={editingAccount.user_kind || ""}
+							onchange={(e) => handleEditFieldChange("user_kind", (e.target as HTMLSelectElement).value === "" ? null : (e.target as HTMLSelectElement).value)}
+						>
+							<option value="">null</option>
+							<option value="admin">admin</option>
+							<option value="member">member</option>
+							<option value="guest">guest</option>
+						</select>
+					</div>
+					<div class="form-group checkbox-group">
+						<div class="checkbox-group-label">User Permissions</div>
+						<div class="checkbox-row">
+							<label class="checkbox-label">
+								<input
+									type="checkbox"
+									id="edit-is-admin"
+									checked={editingAccount.is_admin}
+									onchange={(e) => handleEditFieldChange("is_admin", (e.target as HTMLInputElement).checked)}
+								/>
+								<span>Is Admin</span>
+							</label>
+							<label class="checkbox-label">
+								<input
+									type="checkbox"
+									id="edit-is-guest"
+									checked={editingAccount.is_guest}
+									onchange={(e) => handleEditFieldChange("is_guest", (e.target as HTMLInputElement).checked)}
+								/>
+								<span>Is Guest</span>
+							</label>
+							<label class="checkbox-label">
+								<input
+									type="checkbox"
+									id="edit-is-view-only"
+									checked={editingAccount.is_view_only}
+									onchange={(e) => handleEditFieldChange("is_view_only", (e.target as HTMLInputElement).checked)}
+								/>
+								<span>Is View Only</span>
+							</label>
+						</div>
+					</div>
+					</div>
 				</div>
 			</div>
 
@@ -389,7 +468,7 @@
 		background: white;
 		border-radius: 8px;
 		width: 90%;
-		max-width: 500px;
+		max-width: 1000px;
 		max-height: 90vh;
 		display: flex;
 		flex-direction: column;
@@ -432,11 +511,65 @@
 		padding: 20px;
 	}
 
-	.edit-modal-body hr {
-		border: none;
-		border-top: 1px solid #eee;
-		margin: 15px 0;
+	.form-sections-container {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 30px;
+		align-items: start;
 	}
+
+	@media (max-width: 768px) {
+		.form-sections-container {
+			grid-template-columns: 1fr;
+		}
+	}
+
+	.form-section {
+		margin-bottom: 0;
+	}
+
+	.section-title {
+		margin: 0 0 15px 0;
+		font-size: 16px;
+		font-weight: 600;
+		color: #2c3e50;
+		padding-bottom: 8px;
+		border-bottom: 2px solid #e0e0e0;
+	}
+
+	.edit-modal-body .form-group {
+		margin-bottom: 15px;
+	}
+
+	.edit-modal-body .form-group:last-child {
+		margin-bottom: 0;
+	}
+
+	.edit-modal-body label {
+		display: block;
+		margin-bottom: 5px;
+		font-weight: 500;
+		color: #555;
+		font-size: 13px;
+	}
+
+	.edit-modal-body input,
+	.edit-modal-body select {
+		width: 100%;
+		padding: 8px 12px;
+		border: 1px solid #ddd;
+		border-radius: 4px;
+		font-size: 14px;
+		font-family: inherit;
+	}
+
+	.edit-modal-body input:focus,
+	.edit-modal-body select:focus {
+		outline: none;
+		border-color: #3498db;
+		box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.1);
+	}
+
 
 	.edit-modal-footer {
 		display: flex;
@@ -444,6 +577,18 @@
 		gap: 10px;
 		padding: 15px 20px;
 		border-top: 1px solid #e0e0e0;
+	}
+
+	.cancel-button,
+	.save-button {
+		padding: 10px 20px;
+		border: none;
+		border-radius: 4px;
+		cursor: pointer;
+		font-size: 14px;
+		font-weight: 500;
+		color: white;
+		transition: background 0.2s;
 	}
 
 	.cancel-button {
@@ -460,5 +605,43 @@
 
 	.save-button:hover {
 		background: #2980b9;
+	}
+
+	.checkbox-group {
+		margin-bottom: 15px;
+	}
+
+	.checkbox-group-label {
+		display: block;
+		margin-bottom: 8px;
+		font-weight: 500;
+		color: #555;
+		font-size: 13px;
+	}
+
+	.checkbox-row {
+		display: flex;
+		gap: 20px;
+		flex-wrap: wrap;
+	}
+
+	.checkbox-label {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		cursor: pointer;
+		font-size: 14px;
+		color: #333;
+		user-select: none;
+	}
+
+	.checkbox-label input[type="checkbox"] {
+		width: auto;
+		margin: 0;
+		cursor: pointer;
+	}
+
+	.checkbox-label span {
+		line-height: 1;
 	}
 </style>

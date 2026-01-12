@@ -6,6 +6,12 @@ export type AccountUserData = {
   user_id: string;
   user_name: string;
   user_email: string;
+  user_country: string;
+  user_cluster: string;
+  is_admin: boolean;
+  is_guest: boolean;
+  is_view_only: boolean;
+  user_kind: string | null;
   account_name: string;
   account_slug: string;
   account_tier: string | null;
@@ -30,6 +36,12 @@ export function createDefaultAccount(): AccountUserData {
     user_id: "",
     user_name: "",
     user_email: "",
+    user_country: "US",
+    user_cluster: "other",
+    is_admin: false,
+    is_guest: false,
+    is_view_only: false,
+    user_kind: null,
     account_name: "",
     account_slug: "",
     account_tier: null,
@@ -263,6 +275,12 @@ export function importSingleAccount(json: string): AccountUserData | null {
       user_id: parsed.user_id ?? "",
       user_name: parsed.user_name ?? "",
       user_email: parsed.user_email ?? "",
+      user_country: parsed.user_country ?? "US",
+      user_cluster: parsed.user_cluster ?? "other",
+      is_admin: parsed.is_admin ?? false,
+      is_guest: parsed.is_guest ?? false,
+      is_view_only: parsed.is_view_only ?? false,
+      user_kind: parsed.user_kind ?? null,
       account_name: parsed.account_name ?? "",
       account_slug: parsed.account_slug ?? "",
       account_tier: parsed.account_tier ?? null,

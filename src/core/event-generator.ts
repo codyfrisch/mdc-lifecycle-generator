@@ -63,6 +63,11 @@ export function generateEvent(
     renewalDate = tenYearsFromNow.toISOString();
   }
 
+  // For cancellation events, always set renewal_date to null
+  if (input.event_type === "app_subscription_cancelled") {
+    renewalDate = null;
+  }
+
   // Calculate days_left based on renewal_date if provided
   // If renewal_date is null, days_left is 0
   const daysLeft = renewalDate
@@ -98,7 +103,7 @@ export function generateEvent(
     user_id: input.user_id || "1",
     user_email: input.user_email || "user@example.com",
     user_name: input.user_name || "Test User",
-    user_cluster: "other",
+    user_cluster: input.user_cluster || "other",
     account_tier: (input.account_tier || "free") as
       | "free"
       | "pro"
@@ -112,7 +117,7 @@ export function generateEvent(
     version_data: versionData,
     timestamp,
     subscription,
-    user_country: "US",
+    user_country: input.user_country || "US",
     reason: input.reason ?? undefined,
   };
 

@@ -5,7 +5,7 @@
 	import type { EventGenerationInput, ConfigData } from "../../types.js";
 	import type { LifecyclePayload } from "../../schema/payload.js";
 	import type { LifecycleJwt } from "../../schema/jwt.js";
-	import { signLifecycleJwt } from "../browser/jwt-signer.js";
+	import { signLifecycleJwt } from "../../core/jwt-signer.js";
 	import { appCollection } from "../stores/apps-store.js";
 	import { accountCollection } from "../stores/account-data-store.js";
 	import {
@@ -178,6 +178,7 @@
 	function buildJwtPayloadPreview(
 		event: { data: { account_id: string; app_id: string; account_slug?: string; user_id: string; subscription?: { plan_id: string; renewal_date: string | null; is_trial: boolean; billing_period?: string | null; days_left?: number | null; pricing_version: number; max_units?: number | null } } },
 		clientId: string,
+		account: { is_admin?: boolean; is_guest?: boolean; is_view_only?: boolean; user_kind?: string | null } | null,
 	): object {
 		return {
 			dat: {
@@ -186,19 +187,19 @@
 				app_version_id: null,
 				client_id: clientId,
 				install_id: null,
-				is_admin: true,
-				is_guest: false,
-				is_view_only: false,
+				is_admin: account?.is_admin ?? false,
+				is_guest: account?.is_guest ?? false,
+				is_view_only: account?.is_view_only ?? false,
 				slug: event.data.account_slug,
 				user_id: event.data.user_id,
-				user_kind: null,
-				subscription: event.data.subscription?.renewal_date
+				user_kind: account?.user_kind ?? null,
+				subscription: event.data.subscription
 					? {
 							plan_id: event.data.subscription.plan_id,
-							renewal_date: event.data.subscription.renewal_date,
+							renewal_date: event.data.subscription.renewal_date ?? null,
 							is_trial: event.data.subscription.is_trial,
-							billing_period: event.data.subscription.billing_period || undefined,
-							days_left: event.data.subscription.days_left || undefined,
+							billing_period: event.data.subscription.billing_period ?? null,
+							days_left: event.data.subscription.days_left ?? null,
 							pricing_version: event.data.subscription.pricing_version,
 							max_units: event.data.subscription.max_units ?? null,
 						}
@@ -208,7 +209,7 @@
 	}
 
 	// Build full JWT payload (with iat and exp)
-	function buildJwtPayload(event: LifecyclePayload, clientId: string): LifecycleJwt {
+	function buildJwtPayload(event: LifecyclePayload, clientId: string, account: { is_admin?: boolean; is_guest?: boolean; is_view_only?: boolean; user_kind?: string | null } | null): LifecycleJwt {
 		const now = Math.floor(Date.now() / 1000);
 		return {
 			iat: now,
@@ -219,19 +220,19 @@
 				app_version_id: null,
 				client_id: clientId,
 				install_id: null,
-				is_admin: true,
-				is_guest: false,
-				is_view_only: false,
+				is_admin: account?.is_admin ?? false,
+				is_guest: account?.is_guest ?? false,
+				is_view_only: account?.is_view_only ?? false,
 				slug: event.data.account_slug,
 				user_id: event.data.user_id,
-				user_kind: null,
-				subscription: event.data.subscription?.renewal_date
+				user_kind: account?.user_kind ?? null,
+				subscription: event.data.subscription
 					? {
 							plan_id: event.data.subscription.plan_id,
-							renewal_date: event.data.subscription.renewal_date,
+							renewal_date: event.data.subscription.renewal_date ?? null,
 							is_trial: event.data.subscription.is_trial,
-							billing_period: event.data.subscription.billing_period || undefined,
-							days_left: event.data.subscription.days_left || undefined,
+							billing_period: event.data.subscription.billing_period ?? null,
+							days_left: event.data.subscription.days_left ?? null,
 							pricing_version: event.data.subscription.pricing_version,
 							max_units: event.data.subscription.max_units ?? null,
 						}
@@ -290,6 +291,8 @@
 				user_id: account.user_id || undefined,
 				user_name: account.user_name || undefined,
 				user_email: account.user_email || undefined,
+				user_country: account.user_country || undefined,
+				user_cluster: account.user_cluster || undefined,
 				account_name: account.account_name || undefined,
 				account_slug: account.account_slug || undefined,
 				account_tier: account.account_tier,
@@ -303,7 +306,7 @@
 
 			// Show JWT payload preview (the dat claim) if we have the required info
 			if (app.client_id) {
-				const jwtPayload = buildJwtPayloadPreview(event, app.client_id);
+				const jwtPayload = buildJwtPayloadPreview(event, app.client_id, account);
 				previewJwtPayload = JSON.stringify(jwtPayload, null, 2);
 			} else {
 				previewJwtPayload = "";
@@ -423,6 +426,8 @@
 				user_id: account.user_id || undefined,
 				user_name: account.user_name || undefined,
 				user_email: account.user_email || undefined,
+				user_country: account.user_country || undefined,
+				user_cluster: account.user_cluster || undefined,
 				account_name: account.account_name || undefined,
 				account_slug: account.account_slug || undefined,
 				account_tier: account.account_tier,
@@ -438,8 +443,13 @@
 				return;
 			}
 
-			const jwtPayload = buildJwtPayload(event, app.client_id);
-			const jwt = await signLifecycleJwt(event, clientSecret, app.client_id);
+			const jwtPayload = buildJwtPayload(event, app.client_id, account);
+			const jwt = await signLifecycleJwt(event, clientSecret, app.client_id, {
+				is_admin: account.is_admin,
+				is_guest: account.is_guest,
+				is_view_only: account.is_view_only,
+				user_kind: account.user_kind,
+			});
 			const result = await sendWebhook(app.webhook_url, event, jwt);
 
 			if (result.success) {
@@ -467,6 +477,9 @@
 			return;
 		}
 
+		// Find the account from the stored event
+		const account = $accountCollection.accounts.find((a) => a.account_id === item.event.data.account_id);
+
 		if (!app.webhook_url) {
 			displayMessage("Webhook URL not configured for app", "error");
 			return;
@@ -491,8 +504,13 @@
 			}
 
 			// Regenerate JWT payload and JWT to ensure it's not expired
-			const jwtPayload = buildJwtPayload(item.event, app.client_id);
-			const jwt = await signLifecycleJwt(item.event, secret, app.client_id);
+			const jwtPayload = buildJwtPayload(item.event, app.client_id, account ?? null);
+			const jwt = await signLifecycleJwt(item.event, secret, app.client_id, {
+				is_admin: account?.is_admin ?? false,
+				is_guest: account?.is_guest ?? false,
+				is_view_only: account?.is_view_only ?? false,
+				user_kind: account?.user_kind ?? null,
+			});
 			const result = await sendWebhook(item.webhookUrl, item.event, jwt);
 
 			if (result.success) {

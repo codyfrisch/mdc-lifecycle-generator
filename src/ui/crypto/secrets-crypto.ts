@@ -113,6 +113,106 @@ function generateSalt(): Uint8Array {
 }
 
 // ============================================================================
+// Session Persistence (survives page refresh, cleared on tab close)
+// ============================================================================
+
+const SESSION_KEY_STORAGE_KEY = "lifecycle_session_key";
+const SESSION_ENCRYPTED_MASTER_KEY = "lifecycle_session_master";
+
+/**
+ * Save master key to session storage (encrypted with a random session key)
+ * This allows the unlocked state to persist across page refreshes.
+ *
+ * Security: The session key + encrypted master key are stored in sessionStorage.
+ * If XSS occurs while unlocked, an attacker could extract both and maintain
+ * access until the tab is closed. This is an accepted tradeoff for UX.
+ */
+export async function saveSessionMasterKey(
+  masterKey: Uint8Array,
+): Promise<void> {
+  await ensureSodiumReady();
+
+  // Generate a random session key
+  const sessionKey = sodium.randombytes_buf(sodium.crypto_secretbox_KEYBYTES);
+  const nonce = sodium.randombytes_buf(sodium.crypto_secretbox_NONCEBYTES);
+
+  // Encrypt the master key with the session key
+  const encryptedMasterKey = sodium.crypto_secretbox_easy(
+    masterKey,
+    nonce,
+    sessionKey,
+  );
+
+  // Store both in sessionStorage (base64 encoded)
+  const sessionData = {
+    key: uint8ArrayToBase64(sessionKey),
+    nonce: uint8ArrayToBase64(nonce),
+    encrypted: uint8ArrayToBase64(encryptedMasterKey),
+  };
+
+  sessionStorage.setItem(SESSION_KEY_STORAGE_KEY, JSON.stringify(sessionData));
+
+  // Zero the session key from memory (it's now stored)
+  sodium.memzero(sessionKey);
+}
+
+/**
+ * Load master key from session storage
+ * Returns null if no session exists or decryption fails
+ */
+export async function loadSessionMasterKey(): Promise<Uint8Array | null> {
+  await ensureSodiumReady();
+
+  const stored = sessionStorage.getItem(SESSION_KEY_STORAGE_KEY);
+  if (!stored) {
+    return null;
+  }
+
+  try {
+    const sessionData = JSON.parse(stored) as {
+      key: string;
+      nonce: string;
+      encrypted: string;
+    };
+
+    const sessionKey = base64ToUint8Array(sessionData.key);
+    const nonce = base64ToUint8Array(sessionData.nonce);
+    const encryptedMasterKey = base64ToUint8Array(sessionData.encrypted);
+
+    // Decrypt the master key
+    const masterKey = sodium.crypto_secretbox_open_easy(
+      encryptedMasterKey,
+      nonce,
+      sessionKey,
+    );
+
+    // Zero the session key
+    sodium.memzero(sessionKey);
+
+    return masterKey;
+  } catch {
+    // Invalid or corrupted session data
+    clearSessionMasterKey();
+    return null;
+  }
+}
+
+/**
+ * Clear master key from session storage
+ */
+export function clearSessionMasterKey(): void {
+  sessionStorage.removeItem(SESSION_KEY_STORAGE_KEY);
+  sessionStorage.removeItem(SESSION_ENCRYPTED_MASTER_KEY);
+}
+
+/**
+ * Check if a session master key exists
+ */
+export function hasSessionMasterKey(): boolean {
+  return sessionStorage.getItem(SESSION_KEY_STORAGE_KEY) !== null;
+}
+
+// ============================================================================
 // Key Derivation
 // ============================================================================
 

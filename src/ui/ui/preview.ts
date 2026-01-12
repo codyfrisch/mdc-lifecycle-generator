@@ -1,8 +1,9 @@
 /** biome-ignore-all lint/correctness/useParseIntRadix: parseInt is used for user input where radix is implicit */
+import { get } from "svelte/store";
 import { generateEvent } from "../../core/event-generator.js";
+import { signLifecycleJwt } from "../../core/jwt-signer.js";
 import type { SubscriptionPeriodType } from "../../schema/enums.ts";
 import type { EventGenerationInput } from "../../types.js";
-import { signLifecycleJwt } from "../browser/jwt-signer.js";
 import { getConfig } from "../config-state.js";
 import {
   accountId,
@@ -24,6 +25,7 @@ import {
   userName,
 } from "../dom-elements.js";
 import { generateClientId } from "../helpers/client-id.js";
+import { accountCollection } from "../stores/account-data-store.js";
 
 /**
  * Update the preview display
@@ -43,6 +45,11 @@ export function updatePreview() {
     const renewalDateInput =
       renewalDateValue && renewalDateValue.length > 0 ? renewalDateValue : null;
 
+    // Try to get account data from store if account_id matches
+    const accountFromStore = get(accountCollection).accounts.find(
+      (a) => a.account_id === accountId.value,
+    );
+
     const input: EventGenerationInput = {
       event_type: eventType.value,
       app_id: config.app_id,
@@ -55,15 +62,22 @@ export function updatePreview() {
         | SubscriptionPeriodType
         | undefined,
       renewal_date: renewalDateInput,
-      user_id: userId.value || undefined,
-      user_name: userName.value || undefined,
-      user_email: userEmail.value || undefined,
-      account_name: accountName.value || undefined,
-      account_slug: accountSlug.value || undefined,
-      account_tier: accountTier.value === "" ? null : accountTier.value || null,
+      user_id: userId.value || accountFromStore?.user_id || undefined,
+      user_name: userName.value || accountFromStore?.user_name || undefined,
+      user_email: userEmail.value || accountFromStore?.user_email || undefined,
+      user_country: accountFromStore?.user_country || undefined,
+      user_cluster: accountFromStore?.user_cluster || undefined,
+      account_name:
+        accountName.value || accountFromStore?.account_name || undefined,
+      account_slug:
+        accountSlug.value || accountFromStore?.account_slug || undefined,
+      account_tier:
+        accountTier.value === ""
+          ? null
+          : accountTier.value || accountFromStore?.account_tier || null,
       account_max_users: accountMaxUsers.value
         ? parseInt(accountMaxUsers.value)
-        : undefined,
+        : accountFromStore?.account_max_users || undefined,
       reason: reason.value || undefined,
     };
 
@@ -73,7 +87,17 @@ export function updatePreview() {
 
     if (clientSecret.value) {
       const clientId = generateClientId(config.app_id);
-      signLifecycleJwt(event, clientSecret.value, clientId)
+      // Get account data from store if available
+      const accountFromStore = get(accountCollection).accounts.find(
+        (a) => a.account_id === accountId.value,
+      );
+
+      signLifecycleJwt(event, clientSecret.value, clientId, {
+        is_admin: accountFromStore?.is_admin ?? false,
+        is_guest: accountFromStore?.is_guest ?? false,
+        is_view_only: accountFromStore?.is_view_only ?? false,
+        user_kind: accountFromStore?.user_kind ?? null,
+      })
         .then((jwt) => {
           previewJwt.style.display = "block";
           previewJwt.textContent = `JWT: ${jwt}`;

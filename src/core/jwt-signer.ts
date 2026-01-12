@@ -1,10 +1,7 @@
 import * as jose from "jose";
 import type { LifecycleJwtDat } from "../schema/jwt.js";
+import { lifecycleJwt } from "../schema/jwt.js";
 import type { LifecyclePayload } from "../schema/payload.js";
-
-/**
- * Extended type that allows renewal_date to be nullable
- */
 
 /**
  * Sign a JWT for lifecycle webhook
@@ -13,6 +10,12 @@ export async function signLifecycleJwt(
   payload: LifecyclePayload,
   clientSecret: string,
   clientId: string,
+  options?: {
+    is_admin?: boolean;
+    is_guest?: boolean;
+    is_view_only?: boolean;
+    user_kind?: string | null;
+  },
 ): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
 
@@ -23,12 +26,12 @@ export async function signLifecycleJwt(
     app_version_id: null,
     client_id: clientId,
     install_id: null,
-    is_admin: true,
-    is_guest: false,
-    is_view_only: false,
+    is_admin: options?.is_admin ?? false,
+    is_guest: options?.is_guest ?? false,
+    is_view_only: options?.is_view_only ?? false,
     slug: payload.data.account_slug,
     user_id: payload.data.user_id,
-    user_kind: null,
+    user_kind: options?.user_kind ?? null,
     subscription: payload.data.subscription
       ? {
           plan_id: payload.data.subscription.plan_id,
@@ -48,6 +51,16 @@ export async function signLifecycleJwt(
     exp: now + 3600, // 1 hour expiration
     dat: jwtDat,
   };
+
+  // Validate JWT payload before signing
+  const jwtValidation = lifecycleJwt.safeParse(jwtPayload);
+  if (!jwtValidation.success) {
+    const errorDetails = jwtValidation.error.issues
+      .map((e) => `${e.path.join(".")}: ${e.message}`)
+      .join(", ");
+    console.error("JWT payload validation failed:", jwtValidation.error);
+    throw new Error(`Invalid JWT payload: ${errorDetails}`);
+  }
 
   // Sign JWT
   const secret = new TextEncoder().encode(clientSecret);

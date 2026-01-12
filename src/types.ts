@@ -49,6 +49,12 @@ export type EventGenerationInput = {
   user_id?: string;
   user_name?: string;
   user_email?: string;
+  user_country?: string;
+  user_cluster?: string;
+  is_admin?: boolean;
+  is_guest?: boolean;
+  is_view_only?: boolean;
+  user_kind?: string | null;
   account_name?: string;
   account_slug?: string;
   account_tier?: string | null;
