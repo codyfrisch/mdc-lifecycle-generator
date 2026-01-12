@@ -51,7 +51,7 @@ export function updatePreview() {
       pricing_version: pricingVersion.value
         ? parseInt(pricingVersion.value)
         : undefined,
-      billing_period: (billingPeriod.value || undefined) as
+      billing_period: (billingPeriod.value?.trim() || undefined) as
         | SubscriptionPeriodType
         | undefined,
       renewal_date: renewalDateInput,

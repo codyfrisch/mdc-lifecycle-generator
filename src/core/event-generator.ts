@@ -54,6 +54,15 @@ export function generateEvent(
     }
   }
 
+  // For free plans, always set renewal_date to midnight Zulu 10 years from now
+  if (planConfig?.isFree) {
+    const tenYearsFromNow = new Date(now);
+    tenYearsFromNow.setFullYear(tenYearsFromNow.getFullYear() + 10);
+    // Set to midnight Zulu (UTC)
+    tenYearsFromNow.setUTCHours(0, 0, 0, 0);
+    renewalDate = tenYearsFromNow.toISOString();
+  }
+
   // Calculate days_left based on renewal_date if provided
   // If renewal_date is null, days_left is 0
   const daysLeft = renewalDate
@@ -64,15 +73,18 @@ export function generateEvent(
     : 0;
 
   // Build subscription data
+  // Convert empty/undefined billing_period to null (blank option in form)
+  const billingPeriod =
+    input.billing_period && input.billing_period.trim().length > 0
+      ? (input.billing_period as "monthly" | "yearly")
+      : null;
+
   const subscription = planConfig
     ? {
         plan_id: planConfig.plan_id,
         renewal_date: renewalDate,
         is_trial: planConfig.isTrial,
-        billing_period: (input.billing_period || "monthly") as
-          | "monthly"
-          | "yearly"
-          | null,
+        billing_period: billingPeriod,
         days_left: daysLeft ?? null,
         pricing_version: input.pricing_version || 1,
         max_units: planConfig.max_units ?? null,

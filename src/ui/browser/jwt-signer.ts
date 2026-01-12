@@ -1,4 +1,5 @@
 import * as jose from "jose";
+import { lifecycleJwt } from "../../schema/jwt.js";
 import type { LifecycleJwtDat } from "../../schema/jwt.js";
 import type { LifecyclePayload } from "../../schema/payload.js";
 
@@ -44,6 +45,16 @@ export async function signLifecycleJwt(
     exp: now + 3600, // 1 hour expiration
     dat: jwtDat,
   };
+
+  // Validate JWT payload before signing
+  const jwtValidation = lifecycleJwt.safeParse(jwtPayload);
+  if (!jwtValidation.success) {
+    const errorDetails = jwtValidation.error.issues
+      .map((e) => `${e.path.join(".")}: ${e.message}`)
+      .join(", ");
+    console.error("JWT payload validation failed:", jwtValidation.error);
+    throw new Error(`Invalid JWT payload: ${errorDetails}`);
+  }
 
   // Sign JWT
   const secret = new TextEncoder().encode(clientSecret);

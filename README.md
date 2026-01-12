@@ -1,15 +1,22 @@
 # Monday Lifecycle Webhook Mock Tool
 
-An interactive web UI tool for generating and sending mock Monday.com lifecycle webhook events with properly signed JWTs for testing webhook handlers.
+A browser-based development tool for generating and sending mock Monday.com lifecycle webhook events with properly signed JWTs for testing webhook handlers.
+
+> **⚠️ DISCLAIMER**
+> 
+> This tool is provided "AS IS" without warranty of any kind. Use at your own risk. The authors are not responsible for any damages, data loss, or security issues that may arise from using this tool. This is a development/testing utility and should not be used in production environments. Always verify webhook implementations with official Monday.com documentation.
 
 ## Features
 
-- **Interactive Web UI**: Pure frontend application built with Vite
-- **State Management**: Tracks subscription state per account/app to maintain realistic renewal dates
+- **Interactive Web UI**: Pure frontend application built with Svelte and Vite
+- **Secure Secret Storage**: Client secrets are encrypted in IndexedDB using libsodium (Argon2id + XSalsa20-Poly1305)
+- **Event Configurations**: Save and reuse test configurations for different event scenarios
+- **Multi-App/Account Support**: Manage multiple apps and accounts with separate configurations
 - **All 12 Event Types**: Supports all Monday.com lifecycle webhook events
-- **JWT Signing**: Generates properly signed JWTs using client secret
-- **State Persistence**: Uses localStorage to persist state across sessions
-- **Lifecycle Flow Support**: Handles complex flows like trial → free/paid transitions
+- **JWT Signing**: Generates properly signed JWTs using your app's client secret
+- **Live Preview**: See the event payload and JWT claims before sending
+- **HTTPS by Default**: Dev server runs on HTTPS for secure local development
+- **Webhook Proxy**: Server-side proxy bypasses CORS restrictions (dev server only)
 
 ## Installation
 
@@ -25,171 +32,161 @@ pnpm install
 pnpm dev
 ```
 
-This will start the Vite dev server and open your browser to `http://localhost:5173`.
+This starts the Vite dev server at `https://localhost:5173` (HTTPS with self-signed certificate).
 
-### Using the Tool
+> **⚠️ IMPORTANT**: This tool **must** run via `pnpm dev` (Vite dev server), not as a production build. The webhook proxy middleware that bypasses CORS restrictions only runs in development mode. Production builds will fail to send webhooks due to CORS.
 
-1. **Load Configuration**:
-   - Upload a JSON config file or paste it into the textarea
-   - Click "Load Config" to load the configuration
+### Initial Setup
 
-2. **Configure Event**:
-   - Select event type from dropdown
-   - Enter webhook URL (required)
-   - Fill in app ID, account ID, pricing version, plan, etc.
-   - Enter client secret for JWT signing
+1. **Open the Settings** (gear icon in header)
 
-3. **Preview**:
-   - The preview section shows the generated event payload
-   - JWT preview is shown when client secret is provided
+2. **Add an App**:
+   - Click "Add App" in the Apps tab
+   - Enter App ID, Client ID, App Name, and Webhook URL
+   - Add pricing versions with their plans
+   - Unlock secrets and add your Client Secret
 
-4. **Send Webhook**:
-   - Click "Send Webhook" to send the event to your endpoint
-   - Response status and message are displayed
-   - State is automatically updated after sending
+3. **Add an Account**:
+   - Switch to the Accounts tab
+   - Click "Add Account"
+   - Enter Account ID, User ID, and other account details
 
-5. **View State**:
-   - Current state for the account/app is displayed
-   - Click "Reset State" to clear state for testing
+4. **Unlock Secrets**:
+   - Click "Locked" button in the header
+   - Set an encryption password (first time) or enter your existing password
+   - This decrypts your stored secrets for use
 
-## Configuration Format
+### Creating Event Configurations
 
-The tool expects a JSON configuration file with the following structure:
+1. **Select App and Account** from the dropdowns at the top of the main page
 
-```json
-{
-  "apps": {
-    "1234567890": {
-      "app_id": "1234567890",
-      "app_name": "Test App",
-      "hasFreePlan": true,
-      "hasTrialPlan": true
-    }
-  },
-  "plans": {
-    "5": {
-      "plan1": {
-        "plan_id": "plan1",
-        "isFree": false,
-        "isTrial": false,
-        "price": 29.99
-      },
-      "plan2": {
-        "plan_id": "plan2",
-        "isFree": true,
-        "isTrial": false,
-        "price": 0
-      },
-      "trial_plan": {
-        "plan_id": "trial_plan",
-        "isFree": false,
-        "isTrial": true,
-        "price": 0
-      }
-    }
-  }
-}
-```
+2. **Create a Configuration**:
+   - Click the "+" button in the sidebar
+   - Give it a descriptive name (e.g., "Install Flow", "Upgrade to Pro")
+   - Select event type, pricing version, plan, billing period
+   - Optionally set renewal date and reason
 
-### Configuration Fields
+3. **Preview the Event**:
+   - The Event Payload section shows the webhook body
+   - The JWT Payload section shows the claims that will be signed
 
-- **apps**: App-level configuration
-  - `app_id`: Monday.com app ID
-  - `app_name`: App name
-  - `hasFreePlan`: Whether app supports free plans
-  - `hasTrialPlan`: Whether app supports trial plans
+4. **Send the Webhook**:
+   - Click "Send Webhook"
+   - View the response status in the message area
+   - Check the History section for past sends
 
-- **plans**: Plan configuration by pricing version
-  - Keys are pricing version numbers (as strings)
-  - Values are objects keyed by `plan_id`
-  - Each plan has:
-    - `plan_id`: Plan identifier
-    - `isFree`: Whether this is a free plan
-    - `isTrial`: Whether this is a trial plan
-    - `price`: Plan price (for upgrade/downgrade detection)
+### Managing Configurations
 
-## Event Flow Patterns
+- **Duplicate**: Hover over a config and click the copy icon to create a copy
+- **Delete**: Hover over a config and click the trash icon
+- **Edit**: Click on any config to select and edit it
+- **Auto-save**: Changes are automatically saved as you edit
 
-### Initial Installation
+### Import / Export
 
-- **App with Trial**: `install` → `app_trial_subscription_started`
-- **App with Free Plan**: `install` → Free plan (renewal_date = 10 years)
-- **App with Paid Only**: `install` → `app_subscription_created`
+Use the Import/Export buttons in Settings to backup and restore your configuration:
 
-### Trial Transitions
+**Exported data includes:**
+- Apps (IDs, names, webhook URLs, pricing versions, plans)
+- Accounts (IDs, names, user info)
+- Event configurations (all saved test scenarios)
+- Encrypted secrets (still requires your password to decrypt)
 
-- **Trial → Free**: `app_trial_subscription_ended` (trial plan in event data)
-- **Trial → Paid**: `app_subscription_created` (NO `app_trial_subscription_ended`)
+**Notes:**
+- Secrets remain encrypted in the export file - they're useless without your password
+- Importing merges with existing data (doesn't overwrite)
+- If you import encrypted secrets, you'll need to unlock with the **same password** used when they were encrypted
 
-### Subscription Changes
+## Security
 
-- **Upgrades**: Immediate, renewal_date stays same
-- **Downgrades (monthly)**: Sent at renewal_date, renewal_date changes
-- **Downgrades (yearly)**: Immediate, renewal_date changes
+### Secret Encryption
 
-### Cancellation
+Client secrets are encrypted using industry-standard cryptographic primitives:
+- **Key Derivation**: Argon2id (64 MiB memory, 3 iterations) - OWASP recommended
+- **DEK Derivation**: BLAKE2b keyed hash for per-app key isolation
+- **Encryption**: XSalsa20-Poly1305 (authenticated encryption)
+- **Storage**: Encrypted secrets stored in IndexedDB, separate from app configuration
+- **On-Demand Decryption**: Secrets are decrypted only when accessed, not all at once
 
-- **User Cancels**: `app_subscription_cancelled_by_user` (renewal_date stays same)
-- **Cancellation Takes Effect**: `app_subscription_cancelled` at renewal_date (renewal_date becomes null)
-- **Cancellation Revoked**: `app_subscription_cancellation_revoked_by_user` (restores renewal_date)
+The encryption password is never stored. If you forget it, you'll need to clear secrets and re-enter them.
 
-### Renewal Failures
+See [docs/CRYPTOGRAPHY.md](./docs/CRYPTOGRAPHY.md) and [docs/SECURITY.md](./docs/SECURITY.md) for detailed security documentation.
 
-- **Renewal Attempt Fails**: `app_subscription_renewal_attempt_failed` (may also receive `app_subscription_renewed` due to async payments)
-- **Final Failure**: `app_subscription_renewal_failed` (renewal_date becomes null, no cancelled event)
+### Best Practices
 
-### Uninstall/Reinstall
+- Use a strong encryption password (12+ characters, mixed case, numbers, symbols)
+- Lock secrets when not actively testing
+- Don't share your browser profile with others
+- Consider this tool appropriate for development secrets only
 
-- **Uninstall**: Marks subscription as `cancelled_by_user` (won't renew)
-- **Reinstall**: `install` can be sent again, but does NOT reactivate renewals
+## Event Types
 
-## Special Behaviors
+The tool supports all Monday.com lifecycle webhook events:
 
-### Renewal Date Logic
-
-- **Free plans**: `renewal_date = now + 10 years`
-- **Trial plans**: `renewal_date = now + 14 days`
-- **Paid plans**: `renewal_date = now + billing_period`
-- **Cancelled**: `renewal_date = null`
-- **Subscription changed**: Upgrades keep same renewal_date, downgrades may change it
-
-### State Tracking
-
-The tool tracks subscription state per account/app combination:
-
-- `plan_id`: Current plan
-- `previous_plan_id`: Previous plan (for upgrade/downgrade detection)
-- `renewal_date`: Current renewal date (ISO string or null)
-- `pricing_version`: Current pricing version
-- `billing_period`: Current billing period
-- `subscription_type`: "paid" | "trial" | "free"
-- `is_active`: Whether subscription is active
-- `cancelled_by_user`: Whether marked for cancellation
-- `app_has_free_plan`: Whether app supports free plans
-- `app_has_trial_plan`: Whether app supports trial plans
-
-State is persisted in localStorage and persists across browser sessions.
+| Event | Description |
+|-------|-------------|
+| `install` | App installed on an account |
+| `uninstall` | App uninstalled from an account |
+| `app_subscription_created` | New paid subscription started |
+| `app_subscription_changed` | Plan or billing period changed |
+| `app_subscription_renewed` | Subscription successfully renewed |
+| `app_subscription_cancelled_by_user` | User initiated cancellation |
+| `app_subscription_cancelled` | Cancellation took effect |
+| `app_subscription_cancellation_revoked_by_user` | User revoked cancellation |
+| `app_subscription_renewal_attempt_failed` | Renewal payment failed (retrying) |
+| `app_subscription_renewal_failed` | Renewal permanently failed |
+| `app_trial_subscription_started` | Trial period started |
+| `app_trial_subscription_ended` | Trial period ended |
 
 ## Development
 
 ```bash
+# Start dev server (HTTPS) - REQUIRED for webhook proxy
+pnpm dev
+
 # Type check
 pnpm check-types
 
-# Build
-pnpm build
-
-# Preview production build
-pnpm preview
+# Lint
+pnpm lint
 ```
+
+> **Note**: This tool only runs in development mode via `pnpm dev`. Production builds are not supported because the webhook proxy middleware that bypasses CORS restrictions only runs in the Vite dev server.
+
+## Data Storage
+
+App configuration and event configs are stored in browser localStorage:
+
+| Key | Description |
+|-----|-------------|
+| `lifecycle_webhook_apps` | App configurations (no secrets) |
+| `lifecycle_webhook_accounts` | Account configurations |
+| `lifecycle_webhook_event_configs` | Saved event configurations |
+| `lifecycle_webhook_history_*` | Webhook send history (per account/app) |
+
+Encrypted secrets are stored in IndexedDB:
+
+| Database | Store | Description |
+|---------|-------|-------------|
+| `lifecycle-secrets` | `secrets` | Encrypted client secrets (binary format) |
+| `lifecycle-secrets` | `secrets` (key: `salt`) | Argon2id salt for key derivation |
+
+**Note**: HTTP and HTTPS origins have separate storage. Data from `http://localhost:5173` is not accessible from `https://localhost:5173`.
 
 ## Dependencies
 
-- `@tmm/schema-monday`: Monday.com lifecycle schemas
-- `jose`: JWT signing
-- `zod`: Schema validation
-- `vite`: Development server and build tool
+- **svelte**: UI framework
+- **jose**: JWT signing
+- **zod**: Schema validation
+- **vite**: Development server and build tool
+- **@vitejs/plugin-basic-ssl**: HTTPS for development
+- **libsodium-wrappers-sumo**: Cryptographic operations (Argon2id, XSalsa20-Poly1305)
+- **idb**: IndexedDB wrapper for encrypted secrets storage
 
 ## License
 
-UNLICENSED
+MIT
+
+---
+
+*This tool is not affiliated with or endorsed by Monday.com. Use responsibly.*

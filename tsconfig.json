@@ -17,11 +17,11 @@
         "useUnknownInCatchVariables": true,
         "moduleResolution": "Bundler",
         "esModuleInterop": true,
-        "resolveJsonModule": true,
-        "types": ["node"],
-        "isolatedModules": true,
-        "verbatimModuleSyntax": true,
-        "skipLibCheck": true
-    },
-  "include": ["./src/**/*.ts"]
+    "resolveJsonModule": true,
+    "types": ["node"],
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true
+  },
+  "include": ["./src/**/*.ts", "./src/**/*.svelte"]
 }
